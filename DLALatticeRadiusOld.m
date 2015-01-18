@@ -1,4 +1,4 @@
-function [matrix,neighbourCountMatrix,particleAngles,fractalDimension,particleNumber,diameter] = DLALatticeMeakin(numberOfParticles)
+function [matrix,neighbourCountMatrix,particleAngles,fractalDimension,particleNumber,diameter] = DLALatticeMeakin(radius)
 %% DLA SIMULATION USING SQUARE MATRIX FOR ON LATTICE
 
 tic
@@ -16,13 +16,12 @@ tic
 % |    ----    |
 %  -----------
 
-expectedRadius = numberOfParticles^(1/1.71);
-matrix = zeros(round(3*expectedRadius));
-% distanceMatrix = 40*ones(4*radius);
-% matrixSize = size(matrix);
-% matrixSize = matrixSize(1)/radius;
+matrix = zeros(4*radius);
+distanceMatrix = 40*ones(4*radius);
+matrixSize = size(matrix);
+matrixSize = matrixSize(1)/radius;
 
-middle = round(3*expectedRadius/2);
+middle = matrixSize/2*radius;
 
 matrix(middle,middle) = 1;
 
@@ -92,11 +91,12 @@ while endScript == 0
     numberOfSteps = 0; %record number of steps taken until aggregated
     
     while (aggregate == 0) && (escape == 0)
+        numberOfSteps = numberOfSteps + 1;
         % if particle is far enough away, we can bring it back to the
         % boundary circle immediately via Green's functions (Sander 2000
         % paper)
         randWalk = rand;
-        if distanceFromCenter > 4/3*R
+        if distanceFromCenter > 3/2*R
             x0 = x - middle;
             y0 = middle - y;
             r0 = sqrt(x0^2 + y0^2);
@@ -180,14 +180,14 @@ while endScript == 0
         end
         stuck_particles(particleNumber,4) = particleAngle;
         
-        disp(['particle aggregated: ' num2str(particleNumber)])
+        %disp(['particle aggregated: ' num2str(particleNumber)])
         %numberOfStepsMatrix = [numberOfSteps; numberOfStepsMatrix];
         
         matrix(y,x)=particleNumber;
         
         % end of script check
         
-        if particleNumber == numberOfParticles
+        if distanceFromCenter > radius
             endScript = 1;
             % calculate fractal dimension
             
@@ -212,23 +212,15 @@ timeElapsed = toc;
 %xlabel(num2str(2*width))
 %ylabel(num2str(2*width))
 %axis equal
-miny = min(stuck_particles(:,1));
-maxy = max(stuck_particles(:,1));
-minx = min(stuck_particles(:,2));
-maxx = max(stuck_particles(:,2));
-xdif = maxx-minx;
-ydif = maxy-miny;
-maxaxis = max(xdif,ydif)/2;
-xlim([middle - maxaxis - 10,middle + maxaxis + 10])
-ylim([middle - maxaxis - 10,middle + maxaxis + 10])
+xlim([radius,3*radius])
+ylim([radius,3*radius])
 axis off
 
 %% Display Outputs
 
 disp(['Number of particles: ' num2str(particleNumber)]);
 disp(['Fractal Dimension: ' num2str(fractalDimension)]);
-disp(['Expected Radius: ' num2str(expectedRadius)]);
-disp(['Radius: ' num2str(diameter/2)]);
+disp(['Diameter: ' num2str(diameter)]);
 disp(['Time Elapsed: ' num2str(timeElapsed)]);
 %meanNumberOfSteps = mean(numberOfStepsMatrix);
 %medianNumberOfSteps = median(numberOfStepsMatrix);
@@ -245,16 +237,16 @@ disp(['<cos4x> anisotropy measure: ' num2str(anisotropyMeasure)]);
 %disp(['Median Number Of Steps until aggregated: ' num2str(medianNumberOfSteps)]);
 %disp(['Standard Deviation of Number Of Steps until aggregated: ' num2str(sdNumberOfSteps)]);
 
-neighbourCountMatrix = zeros(round(3*expectedRadius));
-for i = 1:round(3*expectedRadius)
-    for j = 1:round(3*expectedRadius)
+neighbourCountMatrix = zeros(4*radius);
+for i = 1:4*radius
+    for j = 1:4*radius
         neighbourCount = 0;
         if j ~= 1
             if matrix(j-1,i) ~= 0
                 neighbourCount = neighbourCount + 1;
             end
         end
-        if j ~= round(3*expectedRadius)
+        if j ~= 4*radius
             if matrix (j+1,i) ~= 0
                 neighbourCount = neighbourCount + 1;
             end
@@ -264,7 +256,7 @@ for i = 1:round(3*expectedRadius)
                 neighbourCount = neighbourCount + 1;
             end
         end
-        if i ~= round(3*expectedRadius)
+        if i ~= 4*radius
             if matrix (j,i+1) ~= 0
                 neighbourCount = neighbourCount + 1;
             end

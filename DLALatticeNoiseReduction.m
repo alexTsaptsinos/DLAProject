@@ -1,4 +1,4 @@
-function [matrix,particleNumber,diameter] = DLALatticeNoiseReduction(radius,noiseParameter);
+function [matrix,particleNumber,diameter] = DLALatticeNoiseReduction(numberOfParticles,noiseParameter);
 %% DLA SIMULATION USING SQUARE MATRIX FOR ON LATTICE
 
 tic
@@ -19,24 +19,23 @@ tic
 % |    ----    |
 %  -----------
 
-matrix = zeros(4*radius);
-siteCounter = zeros(4*radius);
+matrix = zeros(round(numberOfParticles/4));
+siteCounter = zeros(round(numberOfParticles/4));
 
-middle = 2*radius;
+middle = round(numberOfParticles/8);
 
 matrix(middle,middle) = 1;
 
 % Initialise our variables
 
 particleNumber = 1; %integer
-x = 0; %integer
-y = 0; %integer
 endScript = 0; %bool
+maximumDistance = 0;
 
 % We record the stuck particles
 % in a matrix (stuck_particles) which records the x position, y position,
 % distance from origin, angle from origin
-stuck_particles = zeros(1,3);
+stuck_particles = zeros(1,4);
 stuck_particles(1,1) = middle;
 stuck_particles(1,2) = middle;
 
@@ -45,7 +44,6 @@ stuck_particles(1,2) = middle;
 while endScript == 0
     
     %first decide where the particle starts from
-    maximumDistance = max(stuck_particles(:,3));
     R = maximumDistance + 5;
     randAngle = 2*pi*rand;
     
@@ -86,43 +84,49 @@ while endScript == 0
     % to perform random walk in the matrix until we are next to an entry
     % which is 1. Set aggregate & escape to false.
     
+    distanceFromCenter = R;
     aggregate = 0; %bool to exit below while loop
     escape = 0; %bool to exit below while loop
     numberOfSteps = 0; %record number of steps taken until aggregated
     
     while (aggregate == 0) && (escape == 0)
+        
         randWalk = rand;
-        numberOfSteps = numberOfSteps + 1;
-        if randWalk < 1/4
-            % go right
-            x = x+1;
-        elseif randWalk < 2/4
-            % go left
-            x = x-1;
-        elseif randWalk < 3/4
-            % go up
-            y = y-1;
+        if distanceFromCenter > 4/3*R
+            x0 = x - middle;
+            y0 = middle - y;
+            r0 = sqrt(x0^2 + y0^2);
+            V = ((r0 - R)/(r0 + R))*tan(pi*randWalk);
+            x = (R/r0)*(((1-V^2)*x0 - 2*V*y0)/(1+V^2));
+            y = (R/r0)*(((1-V^2)*y0 + 2*V*x0)/(1+V^2));
+            x = round(x + middle);
+            y = round(middle - y);
         else
-            % go down
-            y = y+1;
-        end
-        
-        %         xdistanceFromCenter = abs(x - middle);
-        %         ydistanceFromCenter = abs(y - middle);
-        %         distanceFromCenter = sqrt(xdistanceFromCenter^2 + ydistanceFromCenter^2);
-        
-        % escape test
-        %         if distanceFromCenter > 2*R
-        %             escape = 1;
-        %         else
-        if (x == 1) || (x == 4*radius) || (y == 1) || (y == 4*radius)
-            escape = 1;
-        else
-            % aggregate test, only if not escaped
-            if (matrix(y,x+1) + matrix(y,x-1) + matrix(y+1,x) + matrix(y-1,x)) ~= 0
-                aggregate = 1;
+            if randWalk < 1/4
+                % go right
+                x = x+1;
+            elseif randWalk < 2/4
+                % go left
+                x = x-1;
+            elseif randWalk < 3/4
+                % go up
+                y = y-1;
+            else
+                % go down
+                y = y+1;
             end
         end
+        
+        xdistanceFromCenter = abs(x - middle);
+        ydistanceFromCenter = abs(y - middle);
+        distanceFromCenter = sqrt(xdistanceFromCenter^2 + ydistanceFromCenter^2);
+        
+        
+        % aggregate test
+        if (matrix(y,x+1) + matrix(y,x-1) + matrix(y+1,x) + matrix(y-1,x)) ~= 0
+            aggregate = 1;
+        end
+        
         
         %We keep repeating this until the particle is finally stuck or
         %escapes
@@ -136,26 +140,52 @@ while endScript == 0
     if aggregate
         siteCounter(y,x) = siteCounter(y,x) + 1;
         if siteCounter(y,x) == noiseParameter;
-            matrix(y,x) = 1;
             particleNumber = particleNumber + 1;
-            xdistanceFromCenter = abs(x - middle);
-            ydistanceFromCenter = abs(y - middle);
-            distanceFromCenter = sqrt(xdistanceFromCenter^2 + ydistanceFromCenter^2);
             stuck_particles(particleNumber,1) = x;
             stuck_particles(particleNumber,2) = y;
             stuck_particles(particleNumber,3) = distanceFromCenter;
+            if distanceFromCenter > maximumDistance
+                maximumDistance = distanceFromCenter;
+            end
             
+            xquadrant = sign(x - middle);
+            yquadrant = sign(y - middle);
+            if xquadrant == 1
+                if yquadrant == 1
+                    particleAngle = atan(ydistanceFromCenter/xdistanceFromCenter) + pi/2;
+                elseif yquadrant ==  -1
+                    particleAngle = atan(xdistanceFromCenter/ydistanceFromCenter);
+                else
+                    particleAngle = pi/2;
+                end
+            elseif xquadrant == -1
+                if yquadrant == 1
+                    particleAngle = atan(xdistanceFromCenter/ydistanceFromCenter) + pi;
+                elseif yquadrant == -1
+                    particleAngle = atan(ydistanceFromCenter/xdistanceFromCenter) + 3*pi/2;
+                else
+                    particleAngle = 3*pi/2;
+                end
+            else
+                if yquadrant == 1
+                    particleAngle = pi;
+                else
+                    particleAngle = 0;
+                end
+            end
+            stuck_particles(particleNumber,4) = particleAngle;
             
-            %disp(['particle aggregated: ' num2str(particleNumber)])
+            disp(['particle aggregated: ' num2str(particleNumber)])
+            
+            matrix(y,x) = 1;
             
             % end of script check
             
-            if distanceFromCenter > radius
+            if particleNumber == numberOfParticles
                 endScript = 1;
                 % calculate fractal dimension
                 
                 diameter = 2*distanceFromCenter;
-                %             fractalDimension = log(particleNumber)/log(distanceFromCenter);
                 
             end
         end
@@ -165,9 +195,10 @@ end
 
 %% Plot graph
 
+%matrix = matrix/particleNumber;
 imagesc(matrix)
 colormap(gray)
-title(['Noise Reduction DLA with ' num2str(noiseParameter) ' as noise parameter'])
+title(['Noise Reduction DLA with ' num2str(noiseParameter) ' as noise parameter and ' num2str(numberOfParticles) ' particles'])
 %text(width/3,3*R/2 + R/6,['Fractal Dimension: ' num2str(fractalDimension)]);
 %text(R/3,3*R/2,['Radius: ' num2str(maximumDistance)]);
 timeElapsed = toc;
@@ -175,8 +206,15 @@ timeElapsed = toc;
 %xlabel(num2str(2*width))
 %ylabel(num2str(2*width))
 %axis equal
-xlim([radius,3*radius])
-ylim([radius,3*radius])
+miny = min(stuck_particles(:,1));
+maxy = max(stuck_particles(:,1));
+minx = min(stuck_particles(:,2));
+maxx = max(stuck_particles(:,2));
+xdif = maxx-minx;
+ydif = maxy-miny;
+maxaxis = max(xdif,ydif)/2;
+xlim([middle - maxaxis - 10,middle + maxaxis + 10])
+ylim([middle - maxaxis - 10,middle + maxaxis + 10])
 axis off
 
 %% Display Outputs
